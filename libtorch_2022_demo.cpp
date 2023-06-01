@@ -40,6 +40,8 @@ void normalize(cv::Mat& mat) {
 }
 int main() {
     //"C:\Users\joeli\OneDrive\Documents\GitHub\AE_Pytorch\encoder.pt"
+    //C:\Users\joeli\OneDrive\Documents\GitHub\AE_Pytorch\trained_models\15-05-2023_00-21-11\encoder.pt
+    //C:\Users\joeli\OneDrive\Documents\GitHub\AE_Pytorch\encoder.pt
     const char* model_path = "C:\\Users\\joeli\\OneDrive\\Documents\\GitHub\\AE_Pytorch\\encoder.pt";
 
     torch::jit::script::Module module;
