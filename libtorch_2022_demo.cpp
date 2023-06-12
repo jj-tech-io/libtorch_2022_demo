@@ -33,16 +33,9 @@ void printStats(const cv::Mat& mat, const std::string& name) {
 
     std::cout << name << " Min: " << minVal << ", Max: " << maxVal << ", Mean: " << meanVal.val[0] << std::endl;
 }
-void normalize(cv::Mat& mat) {
-    double minVal, maxVal;
-    cv::minMaxLoc(mat, &minVal, &maxVal);
-    mat = (mat - minVal) / (maxVal - minVal);
-}
+
 int main() {
-    //"C:\Users\joeli\OneDrive\Documents\GitHub\AE_Pytorch\encoder.pt"
-    //C:\Users\joeli\OneDrive\Documents\GitHub\AE_Pytorch\trained_models\15-05-2023_00-21-11\encoder.pt
-    //C:\Users\joeli\OneDrive\Documents\GitHub\AE_Pytorch\encoder.pt
-    const char* model_path = "C:\\Users\\joeli\\OneDrive\\Documents\\GitHub\\AE_Pytorch\\encoder.pt";
+    const char* model_path = "C:\\Users\\joeli\\OneDrive\\Documents\\GitHub\\AE_Pytorch\\ts_316_trace\\encoder.pt";
 
     torch::jit::script::Module module;
     bool model_loaded = false;
@@ -51,6 +44,7 @@ int main() {
         try {
             module = torch::jit::load(model_path);
             model_loaded = true;
+
         }
         catch (const c10::Error& e) {
             std::cerr << "Error loading the model: " << e.what() << std::endl;
@@ -60,17 +54,31 @@ int main() {
 
     if (model_loaded) {
         // Load and process the image
-        cv::Mat img = cv::imread("C:\\Users\\joeli\\Dropbox\\AE_InputModels\\m53.png", cv::IMREAD_COLOR);
+
+        cv::Mat img = cv::imread("C:\\Users\\joeli\\Dropbox\\AE_InputModels\\m46.png", cv::IMREAD_COLOR);
         cv::Mat img_float;
         img.convertTo(img_float, CV_32FC3, 1.0f / 255.0f);
 
         // Reshape the image to a batch of pixels
         int width = img.cols;
         int height = img.rows;
-        cv::Mat img_batch = img_float.reshape(1, width * height); // reshape to a single-row matrix
+        torch::Tensor input_tensor = torch::from_blob(img_float.ptr<float>(), { 3, height, width }, torch::kFloat32);
+        input_tensor = input_tensor.view({ 3 , height * width });
 
-        // Create an input tensor for the image batch
-        torch::Tensor input_tensor = torch::from_blob(img_batch.ptr<float>(), { 1, width * height, 3 }, torch::kFloat32);
+        std::cout << "Image Shape: " << height << " " << width << std::endl;
+        std::cout << "Reshaped Input Tensor Shape: ";
+        for (auto s : input_tensor.sizes()) {
+            std::cout << s << " ";
+        }
+        std::cout << std::endl;
+
+        input_tensor = input_tensor.view({ -1,3 }); // Flatten the tensor
+
+        std::cout << "Reshaped Input Tensor Shape: ";
+        for (auto s : input_tensor.sizes()) {
+            std::cout << s << " ";
+        }
+        std::cout << std::endl;
 
         // Perform inference
         torch::Tensor output;
@@ -92,16 +100,12 @@ int main() {
             }
         }
 
-        // Print and save model output
-        std::ofstream output_file("output.txt");
-        std::cout << "Model Output Shape: ";
-        auto output_shape = output.sizes();
-        for (size_t i = 0; i < output_shape.size(); ++i) {
-            std::cout << output_shape[i] << " ";
-            output_file << output_shape[i] << " ";
+        std::cout << "Output Tensor Shape: ";
+        for (auto s : output.sizes()) {
+            std::cout << s << " ";
         }
         std::cout << std::endl;
-        output_file.close();
+
 
         // Convert the output tensor to a CV_32FC1 OpenCV matrix
         cv::Mat param_map(output.size(0), output.size(1), CV_32FC1, output.data_ptr<float>());
@@ -110,11 +114,13 @@ int main() {
         cv::imshow("Original Image", img);
 
         // Assuming output is of shape [1, 4194304, 5]
-        cv::Mat Cm = cv::Mat(height, width, CV_32FC1, output[0].select(1, 0).view({ height, width }).data_ptr<float>());
-        cv::Mat Ch = cv::Mat(height, width, CV_32FC1, output[0].select(1, 1).view({ height, width }).data_ptr<float>());
-        cv::Mat Bm = cv::Mat(height, width, CV_32FC1, output[0].select(1, 2).view({ height, width }).data_ptr<float>());
-        cv::Mat Bh = cv::Mat(height, width, CV_32FC1, output[0].select(1, 3).view({ height, width }).data_ptr<float>());
-        cv::Mat T = cv::Mat(height, width, CV_32FC1, output[0].select(1, 4).view({ height, width }).data_ptr<float>());
+        cv::Mat Cm = cv::Mat(height, width, CV_32FC1, output.select(1, 0).view({ height, width }).data_ptr<float>());
+        cv::Mat Ch = cv::Mat(height, width, CV_32FC1, output.select(1, 1).view({ height, width }).data_ptr<float>());
+        cv::Mat Bm = cv::Mat(height, width, CV_32FC1, output.select(1, 2).view({ height, width }).data_ptr<float>());
+        cv::Mat Bh = cv::Mat(height, width, CV_32FC1, output.select(1, 3).view({ height, width }).data_ptr<float>());
+        cv::Mat T = cv::Mat(height, width, CV_32FC1, output.select(1, 4).view({ height, width }).data_ptr<float>());
+        //show Cm
+        
         //normalize Cm, Ch, Bm, Bh, T
         printStats(Cm, "Cm");
         printStats(Ch, "Ch");
